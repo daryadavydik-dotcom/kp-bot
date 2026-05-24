@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+bot.db
+*.png
+_inspect_*.py
+_inspect_*.txt
+_template_structure.txt
+_create_template.py
+kp_template_v3.xlsx
+КП_шаблон.xlsx
