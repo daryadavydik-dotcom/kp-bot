@@ -1,8 +1,14 @@
 from datetime import date, timedelta
 from io import BytesIO
+from pathlib import Path
 
 import openpyxl
+from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment
+
+_PROJECT_ROOT = Path(__file__).parent.parent
+_SIGNATURE_PATH = _PROJECT_ROOT / "Подпись.png"
+_STAMP_PATH = _PROJECT_ROOT / "Печать.png"
 
 
 def _format_date(d: date) -> str:
@@ -188,6 +194,52 @@ def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
         )
         for row_num in rows_to_delete:
             ws.delete_rows(row_num)
+
+        # --- Pass 5: insert signature and stamp images ---
+        # Find "М.П." cell — stamp goes there, signature one row above in same column
+        mp_cell = None
+        for row in ws.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str) and "м.п" in cell.value.lower():
+                    mp_cell = cell
+                    break
+            if mp_cell:
+                break
+
+        # Find anchor rows by text
+        dir_row = None   # row with "Генеральный директор"
+        mp_row = None    # row with "М.П."
+        for row in ws.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str):
+                    if dir_row is None and "директор" in cell.value.lower():
+                        dir_row = cell.row
+                    if mp_row is None and "м.п" in cell.value.lower():
+                        mp_row = cell.row
+
+        # Helper: add image centered horizontally in column B
+        # Column B width = 48 chars ≈ 336px; center offset = (336 - img_width) / 2
+        from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+        from openpyxl.drawing.xdr import XDRPositiveSize2D
+        _EMU = 9525  # 1 pixel in EMU
+
+        def _add_centered(img, row_0based, img_w, img_h):
+            col_b_width_px = 336  # column B width in pixels (48 char units)
+            offset_px = max(0, (col_b_width_px - img_w) // 2)
+            marker = AnchorMarker(col=1, colOff=offset_px * _EMU, row=row_0based, rowOff=0)
+            size = XDRPositiveSize2D(img_w * _EMU, img_h * _EMU)
+            img.anchor = OneCellAnchor(_from=marker, ext=size)
+            ws.add_image(img)
+
+        # Signature: centered in column B, on "Генеральный директор" row
+        if dir_row and _SIGNATURE_PATH.exists():
+            sig_img = XLImage(str(_SIGNATURE_PATH))
+            _add_centered(sig_img, dir_row - 1, 250, 85)
+
+        # Stamp: centered in column B, 2 rows below "М.П."
+        if mp_row and _STAMP_PATH.exists():
+            stamp_img = XLImage(str(_STAMP_PATH))
+            _add_centered(stamp_img, mp_row + 1, 163, 163)
 
     out = BytesIO()
     wb.save(out)
