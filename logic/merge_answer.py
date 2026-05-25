@@ -29,6 +29,37 @@ _SKIP_RE = re.compile(
 )
 
 
+def _parse_inline(text: str) -> dict:
+    """Parse comma-separated positional data: company, contact, phone, manager."""
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if len(parts) < 2:
+        return {}
+
+    phone_idx = next(
+        (i for i, p in enumerate(parts) if len(re.sub(r"\D", "", p)) >= 7),
+        None,
+    )
+
+    if phone_idx is None:
+        keys = ["client_name", "contact_person", "phone", "manager"]
+        return {keys[i]: p for i, p in enumerate(parts) if i < len(keys)}
+
+    result = {"phone": parts[phone_idx]}
+    before = parts[:phone_idx]
+    after = parts[phone_idx + 1:]
+
+    if len(before) >= 2:
+        result["client_name"] = before[0]
+        result["contact_person"] = " ".join(before[1:])
+    elif len(before) == 1:
+        result["client_name"] = before[0]
+
+    if after:
+        result["manager"] = after[0]
+
+    return result
+
+
 def _parse_client_fields(text: str) -> dict:
     result = {}
     lines = [ln.strip() for ln in re.split(r"\r?\n|\\n|;", str(text)) if ln.strip()]
@@ -54,6 +85,10 @@ def _parse_client_fields(text: str) -> dict:
             result["payment_terms"] = value
         elif re.match(r"^(контакты компании|контакты|company contacts)$", key, re.IGNORECASE):
             result["company_contacts"] = value
+
+    # If labeled parsing found nothing, try comma-separated inline format
+    if not result:
+        result = _parse_inline(text)
 
     return result
 

@@ -1,8 +1,6 @@
 import asyncio
 import logging
 
-from pyngrok import ngrok, conf as ngrok_conf
-
 from config import config
 from handlers import register_handlers
 from max_bot import MaxBot
@@ -17,12 +15,10 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     if not config.MAX_BOT_TOKEN:
         raise RuntimeError("Укажите MAX_BOT_TOKEN в файле .env")
+    if not config.WEBHOOK_URL:
+        raise RuntimeError("Укажите WEBHOOK_URL в файле .env")
 
-    if config.NGROK_AUTH_TOKEN:
-        ngrok_conf.get_default().auth_token = config.NGROK_AUTH_TOKEN
-
-    tunnel = ngrok.connect(config.PORT, "http")
-    webhook_url = tunnel.public_url + "/webhook"
+    webhook_url = config.WEBHOOK_URL
 
     print()
     print("=" * 60)
@@ -36,7 +32,6 @@ async def main() -> None:
     bot = MaxBot(token=config.MAX_BOT_TOKEN, port=config.PORT)
     register_handlers(bot)
 
-    # Register webhook with MAX Bot API automatically
     print("Registering webhook with MAX Bot API...")
     ok = await bot.register_webhook(webhook_url)
     if ok:

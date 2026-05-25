@@ -14,7 +14,7 @@ class Config:
     YANDEX_DISK_GENERATED_FOLDER: str
     DATABASE_PATH: str
     PORT: int
-    NGROK_AUTH_TOKEN: str
+    WEBHOOK_URL: str
 
 
 config = Config(
@@ -25,5 +25,5 @@ config = Config(
     YANDEX_DISK_GENERATED_FOLDER=os.getenv("YANDEX_DISK_GENERATED_FOLDER", "/MFB/kp"),
     DATABASE_PATH=os.getenv("DATABASE_PATH", "bot.db"),
     PORT=int(os.getenv("PORT", "8000")),
-    NGROK_AUTH_TOKEN=os.getenv("NGROK_AUTH_TOKEN", ""),
+    WEBHOOK_URL=os.getenv("WEBHOOK_URL", ""),
 )
