@@ -323,12 +323,12 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
 
         # Left-top: 44×57 — col_off_px=120, row_off_px=43 (closer to center, directly above left-bot)
         _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=120, row_off_px=43, w_px=44, h_px=57)
-        # Left-bottom: 90×68 (+15%) — same col_off_px=120, same vertical as left-top
-        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=120, row_off_px=0, w_px=90, h_px=68)
+        # Left-bottom: 90×68 (+15%) — col_off_px=97 (center aligned with left-top center at 142px)
+        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=97, row_off_px=0, w_px=90, h_px=68)
         # Main logo: 551×90 (+15%) — col B+0px, shifted left
         _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=0, row_off_px=3, w_px=551, h_px=90)
-        # Right logo: 108×120 (+30%) — col F+5px, row_off=44 (vertically centered in header)
-        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=5, col_off_px=5, row_off_px=44, w_px=108, h_px=120)
+        # Right logo: 108×120 (+30%) — col E+4px (2/3 in col E, 1/3 in col F); bottom at 3rd-from-bottom text line
+        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=4, col_off_px=4, row_off_px=37, w_px=108, h_px=120)
 
         # Find anchor rows for signature and stamp
         dir_row = None
