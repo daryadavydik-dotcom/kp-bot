@@ -291,6 +291,7 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                         _cell.font = Font(name="Times New Roman", size=13)
                         if _pfx == "• Способ доставки:":
                             _delivery_orig_row = _cell.row
+                            ws.row_dimensions[_cell.row].height = 60  # set pre-deletion
                             _cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="top")
                         break
 
