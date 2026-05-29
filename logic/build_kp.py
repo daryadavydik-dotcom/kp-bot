@@ -321,14 +321,14 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
             img.anchor = OneCellAnchor(_from=marker, ext=size)
             ws.add_image(img)
 
-        # Left-top: 44×57 — col_off_px=100 (symmetric to right logo)
-        _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=100, row_off_px=5, w_px=44, h_px=57)
-        # Left-bottom: 90×68 (+15%) — same col_off_px=100, directly below left-top
-        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=100, row_off_px=0, w_px=90, h_px=68)
-        # Main logo: 551×90 (+15%) — col B+28px, near top edge; centers over cell text
-        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=28, row_off_px=3, w_px=551, h_px=90)
-        # Right logo: 108×120 (+30%) — col E+45px, symmetric to left logo
-        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=4, col_off_px=45, row_off_px=3, w_px=108, h_px=120)
+        # Left-top: 44×57 — col_off_px=120, row_off_px=43 (closer to center, directly above left-bot)
+        _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=120, row_off_px=43, w_px=44, h_px=57)
+        # Left-bottom: 90×68 (+15%) — same col_off_px=120, same vertical as left-top
+        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=120, row_off_px=0, w_px=90, h_px=68)
+        # Main logo: 551×90 (+15%) — col B+0px, shifted left
+        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=0, row_off_px=3, w_px=551, h_px=90)
+        # Right logo: 108×120 (+30%) — col F+5px, row_off=44 (vertically centered in header)
+        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=5, col_off_px=5, row_off_px=44, w_px=108, h_px=120)
 
         # Find anchor rows for signature and stamp
         dir_row = None
@@ -358,7 +358,7 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
             _add_centered(stamp_img, mp_row + 1, 163, 163)
 
         # ── Pass 6: merge rows 1-4 into single block; text sits just below logos ─
-        _HMERGE_END = 4   # A1:F4 — short enough for text to land below logos
+        _HMERGE_END = 3   # A1:F3 — text sits just below main logo (~93px)
         _HTEXT_END = 8    # company text lives in rows 3-8
         _hdr_lines = []
         for _rn in range(3, _HTEXT_END + 1):
