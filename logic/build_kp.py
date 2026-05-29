@@ -214,11 +214,17 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                     raw = url_m.group(0)
                     cell.hyperlink = raw if raw.startswith("http") else f"http://{raw}"
 
-        # Fix ОКПО row — merge A:F if not already full-width
+        # Fix ОКПО row — merge A:F only if it's a standalone row (not in multi-row merge)
         for _row in ws.iter_rows(min_row=1, max_row=HEADER_END_ROW):
             for _cell in _row:
                 if isinstance(_cell.value, str) and "ОКПО" in _cell.value:
                     _rn = _cell.row
+                    _in_multirow = any(
+                        mr.min_row <= _rn <= mr.max_row and mr.min_row != mr.max_row
+                        for mr in ws.merged_cells.ranges
+                    )
+                    if _in_multirow:
+                        break
                     _is_full = any(
                         mr.min_row <= _rn <= mr.max_row and mr.min_col == 1 and mr.max_col >= 6
                         for mr in ws.merged_cells.ranges
@@ -315,15 +321,15 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
             img.anchor = OneCellAnchor(_from=marker, ext=size)
             ws.add_image(img)
 
-        # Logo rows 1-2 (0-based indices 0-1)
-        # Left-top: person silhouette (63×82) — row 0, col A (0)
-        _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=5, row_off_px=5, w_px=63, h_px=82)
-        # Left-bottom: СРО НП text (112×84) — row 1, col A (0)
-        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=0, row_off_px=0, w_px=112, h_px=84)
-        # Main logo (399×65) — centered across all 6 columns (col B + 36px offset)
-        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=36, row_off_px=15, w_px=399, h_px=65)
-        # Right logo: SEG (118×132) — right edge of column F (col 5)
-        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=5, col_off_px=0, row_off_px=5, w_px=118, h_px=132)
+        # Logos: left/right at 70% of original, main at 120% of original
+        # Left-top: 44×57 (was 63×82)
+        _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=5, row_off_px=5, w_px=44, h_px=57)
+        # Left-bottom: 78×59 (was 112×84)
+        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=0, row_off_px=0, w_px=78, h_px=59)
+        # Main logo: 479×78 (was 399×65) — centered: col B + 13px
+        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=13, row_off_px=15, w_px=479, h_px=78)
+        # Right logo: 83×92 (was 118×132) — right edge of col F (37px offset)
+        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=5, col_off_px=37, row_off_px=5, w_px=83, h_px=92)
 
         # Find anchor rows for signature and stamp
         dir_row = None
@@ -351,6 +357,29 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
         if mp_row and _STAMP_PATH.exists():
             stamp_img = XLImage(str(_STAMP_PATH))
             _add_centered(stamp_img, mp_row + 1, 163, 163)
+
+        # ── Pass 6: collapse header rows 1-8 into one merged block ───────────
+        _HMERGE_END = 8
+        _hdr_lines = []
+        for _rn in range(3, _HMERGE_END + 1):
+            _hc = ws.cell(row=_rn, column=1)
+            if isinstance(_hc.value, str) and _hc.value.strip():
+                _hdr_lines.append(_hc.value.strip())
+
+        _already_hmerged = any(
+            mr.min_row == 1 and mr.max_row >= _HMERGE_END
+            for mr in ws.merged_cells.ranges
+        )
+        if not _already_hmerged and _hdr_lines:
+            for _mr in list(ws.merged_cells.ranges):
+                if _mr.min_row >= 1 and _mr.max_row <= _HMERGE_END:
+                    ws.unmerge_cells(str(_mr))
+            ws.merge_cells(f"A1:F{_HMERGE_END}")
+            ws.cell(row=1, column=1).value = "\n".join(_hdr_lines)
+            ws.cell(row=1, column=1).alignment = Alignment(
+                horizontal="center", vertical="bottom", wrap_text=True
+            )
+            ws.cell(row=1, column=1).font = Font(name="Times New Roman", size=12)
 
     out = BytesIO()
     wb.save(out)
