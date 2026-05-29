@@ -288,6 +288,9 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                             TextBlock(_INORM, _rest),
                         )
                         _cell.font = Font(name="Times New Roman", size=13)
+                        if _pfx == "• Способ доставки:":
+                            _cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="center")
+                            ws.row_dimensions[_cell.row].height = 36
                         break
 
         # ── Pass 4: delete empty product rows (bottom → top) ─────────────────
@@ -383,6 +386,28 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
             # Collapse rows 5-8 so they leave no blank gap
             for _rn in range(_HMERGE_END + 1, _HTEXT_END + 1):
                 ws.row_dimensions[_rn].hidden = True
+
+        # ── Pass 7: bold static rows; fix typo ───────────────────────────────
+        _BOLD_STARTS = (
+            "Коммерческое предложение действительно",
+            "С уважением",
+            "Генеральный директор",
+        )
+        for _row in ws.iter_rows():
+            for _cell in _row:
+                if not isinstance(_cell.value, str):
+                    continue
+                if "Жиглова" in _cell.value:
+                    _cell.value = _cell.value.replace("Жиглова", "Жигалова")
+                for _s in _BOLD_STARTS:
+                    if _cell.value.startswith(_s):
+                        _ef = _cell.font
+                        _cell.font = Font(
+                            name=(_ef.name if _ef and _ef.name else "Times New Roman"),
+                            size=(_ef.size if _ef and _ef.size else 13),
+                            bold=True,
+                        )
+                        break
 
     out = BytesIO()
     wb.save(out)
