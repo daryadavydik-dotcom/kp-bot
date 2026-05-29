@@ -219,8 +219,8 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
         from openpyxl.cell.text import InlineFont as _IFont
 
         _SEMI_BOLD = ("• Условия оплаты:", "• Срок изготовления:", "• Способ доставки:")
-        _IBOLD = _IFont(b=True, rFont="Times New Roman", sz=13)
-        _INORM = _IFont(b=False, rFont="Times New Roman", sz=13)
+        _IBOLD = _IFont(b=True)
+        _INORM = _IFont(b=False)
 
         for _row in ws.iter_rows():
             for _cell in _row:
