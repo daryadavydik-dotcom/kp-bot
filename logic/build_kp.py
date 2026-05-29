@@ -35,12 +35,23 @@ def build_replacements(kp_data: dict, kp_number: str) -> dict:
     client = kp_data.get("client", {})
     items = kp_data.get("items", [])
 
+    company = client.get("client_name", "")
+    contact = client.get("contact_person", "")
+    if company or contact:
+        parts = ["Специалисту"]
+        if company:
+            parts.append(company)
+        if contact:
+            parts.append(contact)
+        addressee = "\n".join(parts)
+    else:
+        addressee = ""
+
     replacements = {
         "kp_number": kp_number,
         "date": _format_date(today),
         "kp_valid_until": _format_date(valid_until),
-        "client_name": client.get("client_name", ""),
-        "contact_person": client.get("contact_person", ""),
+        "addressee": addressee,
     }
 
     total_sum = 0.0
@@ -91,7 +102,7 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
 
     for ws in wb.worksheets:
         # ── Pass 1: locate placeholder positions ─────────────────────────────
-        _CLIENT_KEYS = {"client_name", "contact_person"}
+        _CLIENT_KEYS = {"addressee"}
         product_placeholder_rows: dict[int, int] = {}  # product_num → row
         product_name_col: int | None = None
         client_field_rows: set[int] = set()
@@ -157,8 +168,9 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                 lines = max(1, -(-text_len // 45))
                 ws.row_dimensions[row_num].height = max(30, lines * 18)
 
-        # Column A width for labels
+        # Column widths
         ws.column_dimensions["A"].width = 22
+        ws.column_dimensions["F"].width = 16
 
         # Header and client row alignment
         first_product_row = min(product_placeholder_rows.values()) if product_placeholder_rows else 999
@@ -168,7 +180,7 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                 if cell.value is None:
                     continue
                 if cell.row in client_field_rows:
-                    cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=True)
+                    cell.alignment = Alignment(horizontal="right", vertical="top", wrap_text=True)
                 else:
                     cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
@@ -201,6 +213,28 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                 if url_m:
                     raw = url_m.group(0)
                     cell.hyperlink = raw if raw.startswith("http") else f"http://{raw}"
+
+        # ── Pass 3.5: partial bold — keyword bold, value after colon normal ─────
+        from openpyxl.cell.rich_text import CellRichText, TextBlock
+        from openpyxl.cell.text import InlineFont as _IFont
+
+        _SEMI_BOLD = ("• Условия оплаты:", "• Срок изготовления:", "• Способ доставки:")
+        _IBOLD = _IFont(b=True, name="Times New Roman", sz=13)
+        _INORM = _IFont(b=False, name="Times New Roman", sz=13)
+
+        for _row in ws.iter_rows():
+            for _cell in _row:
+                if not isinstance(_cell.value, str):
+                    continue
+                for _pfx in _SEMI_BOLD:
+                    if _cell.value.startswith(_pfx):
+                        _rest = _cell.value[len(_pfx):]
+                        _cell.value = CellRichText(
+                            TextBlock(_IBOLD, _pfx),
+                            TextBlock(_INORM, _rest),
+                        )
+                        _cell.font = Font(name="Times New Roman", size=13)
+                        break
 
         # ── Pass 4: delete empty product rows (bottom → top) ─────────────────
         rows_to_delete = sorted(
