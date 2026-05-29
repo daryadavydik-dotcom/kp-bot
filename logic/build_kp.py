@@ -79,7 +79,7 @@ def build_replacements(kp_data: dict, kp_number: str) -> dict:
     return replacements
 
 
-def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
+def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None = None) -> bytes:
     """Replace all {{key}} placeholders in every cell of every sheet."""
     import re as _re
     wb = openpyxl.load_workbook(BytesIO(template_bytes))
@@ -214,24 +214,34 @@ def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
         from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
         from openpyxl.drawing.xdr import XDRPositiveSize2D
 
-        def _place(img_path: Path, row_0: int, col_0: int, col_off_px: int, row_off_px: int, w_px: int, h_px: int):
-            if not img_path.exists():
+        logos = logos or {}
+
+        def _get_img(key: str, fallback_path: Path):
+            """Return XLImage from logos dict (bytes) or local file, or None."""
+            data = logos.get(key)
+            if data:
+                return XLImage(BytesIO(data))
+            if fallback_path.exists():
+                return XLImage(str(fallback_path))
+            return None
+
+        def _place(img, row_0: int, col_0: int, col_off_px: int, row_off_px: int, w_px: int, h_px: int):
+            if img is None:
                 return
-            img = XLImage(str(img_path))
             marker = AnchorMarker(col=col_0, colOff=col_off_px * _EMU, row=row_0, rowOff=row_off_px * _EMU)
             size = XDRPositiveSize2D(w_px * _EMU, h_px * _EMU)
             img.anchor = OneCellAnchor(_from=marker, ext=size)
             ws.add_image(img)
 
         # Logo rows 1-2 (0-based indices 0-1)
-        # Left-top: person silhouette (63×82) — row 0, col A (0), offset 5px from top
-        _place(_LOGO_LEFT_TOP_PATH, row_0=0, col_0=0, col_off_px=5, row_off_px=5, w_px=63, h_px=82)
+        # Left-top: person silhouette (63×82) — row 0, col A (0)
+        _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=5, row_off_px=5, w_px=63, h_px=82)
         # Left-bottom: СРО НП text (112×84) — row 1, col A (0)
-        _place(_LOGO_LEFT_BOT_PATH, row_0=1, col_0=0, col_off_px=0, row_off_px=0, w_px=112, h_px=84)
-        # Main logo (399×65) — row 0, col B (1), centered: colA≈165px, main_logo_w=399, total≈765 → offset=(765-399)/2-165=18px
-        _place(_LOGO_MAIN_PATH, row_0=0, col_0=1, col_off_px=18, row_off_px=15, w_px=399, h_px=65)
+        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=0, row_off_px=0, w_px=112, h_px=84)
+        # Main logo (399×65) — row 0, col B (1), centered
+        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=18, row_off_px=15, w_px=399, h_px=65)
         # Right logo: SEG (118×132) — row 0, col E (4)
-        _place(_LOGO_RIGHT_PATH, row_0=0, col_0=4, col_off_px=5, row_off_px=5, w_px=118, h_px=132)
+        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=4, col_off_px=5, row_off_px=5, w_px=118, h_px=132)
 
         # Find anchor rows for signature and stamp
         dir_row = None

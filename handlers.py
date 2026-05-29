@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from datetime import date
@@ -30,13 +31,40 @@ async def _get_nomenclature() -> list[dict]:
     return _cache["data"]
 
 
+_LOGOS_DIR = "/MFB/templates/logos"
+_LOGO_KEYS = {
+    "main": f"{_LOGOS_DIR}/logo_main.png",
+    "right": f"{_LOGOS_DIR}/logo_right.png",
+    "left_top": f"{_LOGOS_DIR}/logo_left_top.png",
+    "left_bot": f"{_LOGOS_DIR}/logo_left_bot.png",
+}
+
+
+async def _download_logos() -> dict:
+    """Download all logo files from Yandex Disk; skip any that fail."""
+    import asyncio
+    logos = {}
+
+    async def _fetch(key: str, path: str):
+        try:
+            logos[key] = await yadisk.download_file(path)
+        except Exception:
+            pass
+
+    await asyncio.gather(*[_fetch(k, p) for k, p in _LOGO_KEYS.items()])
+    return logos
+
+
 async def _create_and_send_kp(bot: MaxBot, chat_id: str, kp_data: dict) -> None:
     try:
         kp_number = db.next_kp_number()
         replacements = build_replacements(kp_data, kp_number)
 
-        template_bytes = await yadisk.download_file(config.YANDEX_DISK_TEMPLATE_PATH)
-        filled_bytes = fill_template(template_bytes, replacements)
+        template_bytes, logos = await asyncio.gather(
+            yadisk.download_file(config.YANDEX_DISK_TEMPLATE_PATH),
+            _download_logos(),
+        )
+        filled_bytes = fill_template(template_bytes, replacements, logos)
 
         today_str = date.today().strftime("%Y-%m-%d")
         filename = f"КП_{kp_number}_{today_str}.xlsx"
