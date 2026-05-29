@@ -5,6 +5,7 @@ bot.db
 *.png
 _inspect_*.py
 _deploy.py
+_upload_logos.py
 _debug_template.py
 _modify_template.py
 _upload_template.py
