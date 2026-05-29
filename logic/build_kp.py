@@ -341,21 +341,21 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                     if mp_row is None and "м.п" in cell.value.lower():
                         mp_row = cell.row
 
-        def _add_centered(img, row_0based, img_w, img_h):
+        def _add_centered(img, row_0based, img_w, img_h, dx_px=0, row_off_px=0):
             col_b_width_px = 336
-            offset_px = max(0, (col_b_width_px - img_w) // 2)
-            marker = AnchorMarker(col=1, colOff=offset_px * _EMU, row=row_0based, rowOff=0)
+            offset_px = max(0, (col_b_width_px - img_w) // 2) + dx_px
+            marker = AnchorMarker(col=1, colOff=offset_px * _EMU, row=row_0based, rowOff=row_off_px * _EMU)
             size = XDRPositiveSize2D(img_w * _EMU, img_h * _EMU)
             img.anchor = OneCellAnchor(_from=marker, ext=size)
             ws.add_image(img)
 
         if dir_row and _SIGNATURE_PATH.exists():
             sig_img = XLImage(str(_SIGNATURE_PATH))
-            _add_centered(sig_img, dir_row - 1, 250, 85)
+            _add_centered(sig_img, dir_row - 1, 250, 85, dx_px=76, row_off_px=-38)
 
         if mp_row and _STAMP_PATH.exists():
             stamp_img = XLImage(str(_STAMP_PATH))
-            _add_centered(stamp_img, mp_row + 1, 163, 163)
+            _add_centered(stamp_img, mp_row + 1, 163, 163, dx_px=76)
 
         # ── Pass 6: merge rows 1-4 into single block; text sits just below logos ─
         _HMERGE_END = 3   # A1:F3 — text sits just below main logo (~93px)
