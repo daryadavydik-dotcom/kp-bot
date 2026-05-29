@@ -4,11 +4,17 @@ from pathlib import Path
 
 import openpyxl
 from openpyxl.drawing.image import Image as XLImage
-from openpyxl.styles import Alignment
+from openpyxl.styles import Alignment, Font
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 _SIGNATURE_PATH = _PROJECT_ROOT / "Подпись.png"
 _STAMP_PATH = _PROJECT_ROOT / "Печать.png"
+_LOGO_MAIN_PATH = _PROJECT_ROOT / "Главный логотип.png"
+_LOGO_RIGHT_PATH = _PROJECT_ROOT / "лого справа.png"
+_LOGO_LEFT_TOP_PATH = _PROJECT_ROOT / "лого снизу верхний.png"
+_LOGO_LEFT_BOT_PATH = _PROJECT_ROOT / "лого слева нижний.png"
+
+_EMU = 9525  # 1 px in EMU
 
 
 def _format_date(d: date) -> str:
@@ -16,7 +22,6 @@ def _format_date(d: date) -> str:
 
 
 def _fmt_num(value) -> str:
-    """Format number: integer if whole, else 2 decimal places."""
     try:
         f = float(value)
         return str(int(f)) if f == int(f) else f"{f:.2f}"
@@ -36,11 +41,6 @@ def build_replacements(kp_data: dict, kp_number: str) -> dict:
         "kp_valid_until": _format_date(valid_until),
         "client_name": client.get("client_name", ""),
         "contact_person": client.get("contact_person", ""),
-        "phone": client.get("phone", ""),
-        "manager": client.get("manager", ""),
-        "delivery_time": client.get("delivery_time", ""),
-        "payment_terms": client.get("payment_terms", ""),
-        "company_contacts": client.get("company_contacts", ""),
     }
 
     total_sum = 0.0
@@ -90,11 +90,8 @@ def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
     }
 
     for ws in wb.worksheets:
-        # --- Pass 1: locate placeholder positions ---
-        _CLIENT_KEYS = {
-            "client_name", "contact_person", "phone", "manager",
-            "delivery_time", "payment_terms", "company_contacts",
-        }
+        # ── Pass 1: locate placeholder positions ─────────────────────────────
+        _CLIENT_KEYS = {"client_name", "contact_person"}
         product_placeholder_rows: dict[int, int] = {}  # product_num → row
         product_name_col: int | None = None
         client_field_rows: set[int] = set()
@@ -113,7 +110,7 @@ def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
                 if m_any and m_any.group(1) in _CLIENT_KEYS:
                     client_field_rows.add(cell.row)
 
-        # --- Pass 2: replace placeholders ---
+        # ── Pass 2: replace placeholders ─────────────────────────────────────
         for row in ws.iter_rows():
             for cell in row:
                 if not isinstance(cell.value, str):
@@ -141,7 +138,7 @@ def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
                 if new_value != v:
                     cell.value = new_value if new_value.strip() else None
 
-        # --- Pass 3: formatting ---
+        # ── Pass 3: formatting ────────────────────────────────────────────────
 
         # Widen and wrap the Наименование column
         if product_name_col:
@@ -160,10 +157,10 @@ def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
                 lines = max(1, -(-text_len // 45))
                 ws.row_dimensions[row_num].height = max(30, lines * 18)
 
-        # Widen column A so labels like "Контактное лицо:" fit on one line
+        # Column A width for labels
         ws.column_dimensions["A"].width = 22
 
-        # Center header rows; left-align client data rows
+        # Header and client row alignment
         first_product_row = min(product_placeholder_rows.values()) if product_placeholder_rows else 999
         header_end = max(1, first_product_row - 2)
         for row in ws.iter_rows(min_row=1, max_row=header_end):
@@ -171,23 +168,41 @@ def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
                 if cell.value is None:
                     continue
                 if cell.row in client_field_rows:
-                    # Column A has labels — no wrap, left-aligned
-                    # Other columns have values — wrap allowed
-                    no_wrap = (cell.column == 1)
-                    cell.alignment = Alignment(
-                        horizontal="left",
-                        vertical="center",
-                        wrap_text=not no_wrap,
-                    )
+                    cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=True)
                 else:
                     cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-        # Explicitly left-align row 8 (template row with manager field)
-        for cell in ws[8]:
-            if cell.value is not None:
-                cell.alignment = Alignment(horizontal="left", vertical="center")
+        # Times New Roman 13pt for all non-header rows (rows > 2 are logo+company header)
+        # Header = rows 1-11 (logo rows + company text + КП number row)
+        # Content starts at row 12 (client row)
+        HEADER_END_ROW = 11
+        TNR = Font(name="Times New Roman", size=13)
+        TNR_BOLD = Font(name="Times New Roman", size=13, bold=True)
+        for row in ws.iter_rows(min_row=HEADER_END_ROW + 1):
+            for cell in row:
+                if cell.value is None:
+                    continue
+                existing = cell.font
+                is_bold = existing and existing.bold
+                cell.font = TNR_BOLD if is_bold else TNR
 
-        # --- Pass 4: delete empty product rows (bottom → top) ---
+        # Add hyperlinks to cells containing URLs or email addresses
+        _URL_RE = _re.compile(r'(?:https?://|www\.)([\w\-./]+)')
+        _EMAIL_RE = _re.compile(r'[\w.+-]+@[\w\-]+\.[a-z]{2,}')
+        for row in ws.iter_rows(min_row=1, max_row=HEADER_END_ROW):
+            for cell in row:
+                if not isinstance(cell.value, str):
+                    continue
+                email_m = _EMAIL_RE.search(cell.value)
+                if email_m:
+                    cell.hyperlink = f"mailto:{email_m.group(0)}"
+                    continue
+                url_m = _URL_RE.search(cell.value)
+                if url_m:
+                    raw = url_m.group(0)
+                    cell.hyperlink = raw if raw.startswith("http") else f"http://{raw}"
+
+        # ── Pass 4: delete empty product rows (bottom → top) ─────────────────
         rows_to_delete = sorted(
             [product_placeholder_rows[n] for n in empty_product_nums if n in product_placeholder_rows],
             reverse=True,
@@ -195,20 +210,32 @@ def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
         for row_num in rows_to_delete:
             ws.delete_rows(row_num)
 
-        # --- Pass 5: insert signature and stamp images ---
-        # Find "М.П." cell — stamp goes there, signature one row above in same column
-        mp_cell = None
-        for row in ws.iter_rows():
-            for cell in row:
-                if isinstance(cell.value, str) and "м.п" in cell.value.lower():
-                    mp_cell = cell
-                    break
-            if mp_cell:
-                break
+        # ── Pass 5: insert logos and images ──────────────────────────────────
+        from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+        from openpyxl.drawing.xdr import XDRPositiveSize2D
 
-        # Find anchor rows by text
-        dir_row = None   # row with "Генеральный директор"
-        mp_row = None    # row with "М.П."
+        def _place(img_path: Path, row_0: int, col_0: int, col_off_px: int, row_off_px: int, w_px: int, h_px: int):
+            if not img_path.exists():
+                return
+            img = XLImage(str(img_path))
+            marker = AnchorMarker(col=col_0, colOff=col_off_px * _EMU, row=row_0, rowOff=row_off_px * _EMU)
+            size = XDRPositiveSize2D(w_px * _EMU, h_px * _EMU)
+            img.anchor = OneCellAnchor(_from=marker, ext=size)
+            ws.add_image(img)
+
+        # Logo rows 1-2 (0-based indices 0-1)
+        # Left-top: person silhouette (63×82) — row 0, col A (0), offset 5px from top
+        _place(_LOGO_LEFT_TOP_PATH, row_0=0, col_0=0, col_off_px=5, row_off_px=5, w_px=63, h_px=82)
+        # Left-bottom: СРО НП text (112×84) — row 1, col A (0)
+        _place(_LOGO_LEFT_BOT_PATH, row_0=1, col_0=0, col_off_px=0, row_off_px=0, w_px=112, h_px=84)
+        # Main logo (399×65) — row 0, col B (1), centered: colA≈165px, main_logo_w=399, total≈765 → offset=(765-399)/2-165=18px
+        _place(_LOGO_MAIN_PATH, row_0=0, col_0=1, col_off_px=18, row_off_px=15, w_px=399, h_px=65)
+        # Right logo: SEG (118×132) — row 0, col E (4)
+        _place(_LOGO_RIGHT_PATH, row_0=0, col_0=4, col_off_px=5, row_off_px=5, w_px=118, h_px=132)
+
+        # Find anchor rows for signature and stamp
+        dir_row = None
+        mp_row = None
         for row in ws.iter_rows():
             for cell in row:
                 if isinstance(cell.value, str):
@@ -217,26 +244,18 @@ def fill_template(template_bytes: bytes, replacements: dict) -> bytes:
                     if mp_row is None and "м.п" in cell.value.lower():
                         mp_row = cell.row
 
-        # Helper: add image centered horizontally in column B
-        # Column B width = 48 chars ≈ 336px; center offset = (336 - img_width) / 2
-        from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
-        from openpyxl.drawing.xdr import XDRPositiveSize2D
-        _EMU = 9525  # 1 pixel in EMU
-
         def _add_centered(img, row_0based, img_w, img_h):
-            col_b_width_px = 336  # column B width in pixels (48 char units)
+            col_b_width_px = 336
             offset_px = max(0, (col_b_width_px - img_w) // 2)
             marker = AnchorMarker(col=1, colOff=offset_px * _EMU, row=row_0based, rowOff=0)
             size = XDRPositiveSize2D(img_w * _EMU, img_h * _EMU)
             img.anchor = OneCellAnchor(_from=marker, ext=size)
             ws.add_image(img)
 
-        # Signature: centered in column B, on "Генеральный директор" row
         if dir_row and _SIGNATURE_PATH.exists():
             sig_img = XLImage(str(_SIGNATURE_PATH))
             _add_centered(sig_img, dir_row - 1, 250, 85)
 
-        # Stamp: centered in column B, 2 rows below "М.П."
         if mp_row and _STAMP_PATH.exists():
             stamp_img = XLImage(str(_STAMP_PATH))
             _add_centered(stamp_img, mp_row + 1, 163, 163)

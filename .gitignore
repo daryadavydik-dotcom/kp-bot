@@ -6,6 +6,8 @@ bot.db
 _inspect_*.py
 _deploy.py
 _debug_template.py
+_modify_template.py
+_upload_template.py
 _inspect_*.txt
 _template_structure.txt
 _create_template.py

@@ -9,15 +9,9 @@ import re
 REQUIRED_FIELDS = [
     {"key": "client_name", "label": "название клиента"},
     {"key": "contact_person", "label": "контактное лицо"},
-    {"key": "phone", "label": "телефон"},
-    {"key": "manager", "label": "менеджера"},
 ]
 
-OPTIONAL_FIELDS = REQUIRED_FIELDS + [
-    {"key": "delivery_time", "label": "срок поставки"},
-    {"key": "payment_terms", "label": "условия оплаты"},
-    {"key": "company_contacts", "label": "контакты компании"},
-]
+OPTIONAL_FIELDS = REQUIRED_FIELDS
 
 _SKIP_RE = re.compile(
     r"(не\s*нужно|не\s*надо|без\s*данных|без\s*клиента|пропусти|пропустить|сформируй\s+без)",
@@ -40,12 +34,10 @@ def check_client_data(message_text: str, kp_data: dict, chat_id: str) -> dict:
             "Не хватает данных для КП.\n\n"
             f"Пришлите, пожалуйста:\n{missing_labels}\n\n"
             "Можно одной строкой через запятую:\n"
-            "ООО Север, Иван Иванов, +7 999 123-45-67, Настя\n\n"
+            "ООО Север, Иван Иванов\n\n"
             "Или в столбик:\n"
             "Клиент: ООО Север\n"
-            "Контакт: Иван Иванов\n"
-            "Телефон: +7 999 123-45-67\n"
-            "Менеджер: Настя\n\n"
+            "Контакт: Иван Иванов\n\n"
             "Если эти данные не нужны, напишите: без данных"
         )
         return {

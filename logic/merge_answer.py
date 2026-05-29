@@ -7,20 +7,12 @@ Portage of merge_client_answer.js:
 """
 import re
 
-REQUIRED_FIELDS = ["client_name", "contact_person", "phone", "manager"]
-OPTIONAL_FIELDS = [
-    "client_name", "contact_person", "phone", "manager",
-    "delivery_time", "payment_terms", "company_contacts",
-]
+REQUIRED_FIELDS = ["client_name", "contact_person"]
+OPTIONAL_FIELDS = ["client_name", "contact_person"]
 
 _FIELD_LABELS = {
     "client_name": "название клиента",
     "contact_person": "контактное лицо",
-    "phone": "телефон",
-    "manager": "менеджера",
-    "delivery_time": "срок поставки",
-    "payment_terms": "условия оплаты",
-    "company_contacts": "контакты компании",
 }
 
 _SKIP_RE = re.compile(
@@ -30,34 +22,11 @@ _SKIP_RE = re.compile(
 
 
 def _parse_inline(text: str) -> dict:
-    """Parse comma-separated positional data: company, contact, phone, manager."""
+    """Parse comma-separated positional data: company, contact."""
     parts = [p.strip() for p in text.split(",") if p.strip()]
     if len(parts) < 2:
         return {}
-
-    phone_idx = next(
-        (i for i, p in enumerate(parts) if len(re.sub(r"\D", "", p)) >= 7),
-        None,
-    )
-
-    if phone_idx is None:
-        keys = ["client_name", "contact_person", "phone", "manager"]
-        return {keys[i]: p for i, p in enumerate(parts) if i < len(keys)}
-
-    result = {"phone": parts[phone_idx]}
-    before = parts[:phone_idx]
-    after = parts[phone_idx + 1:]
-
-    if len(before) >= 2:
-        result["client_name"] = before[0]
-        result["contact_person"] = " ".join(before[1:])
-    elif len(before) == 1:
-        result["client_name"] = before[0]
-
-    if after:
-        result["manager"] = after[0]
-
-    return result
+    return {"client_name": parts[0], "contact_person": " ".join(parts[1:])}
 
 
 def _parse_client_fields(text: str) -> dict:
@@ -75,16 +44,6 @@ def _parse_client_fields(text: str) -> dict:
             result["client_name"] = value
         elif re.match(r"^(контакт|контактное лицо|фио|contact)$", key, re.IGNORECASE):
             result["contact_person"] = value
-        elif re.match(r"^(телефон|phone|номер)$", key, re.IGNORECASE):
-            result["phone"] = value
-        elif re.match(r"^(менеджер|manager)$", key, re.IGNORECASE):
-            result["manager"] = value
-        elif re.match(r"^(срок|срок поставки|поставка|delivery)$", key, re.IGNORECASE):
-            result["delivery_time"] = value
-        elif re.match(r"^(оплата|условия оплаты|payment)$", key, re.IGNORECASE):
-            result["payment_terms"] = value
-        elif re.match(r"^(контакты компании|контакты|company contacts)$", key, re.IGNORECASE):
-            result["company_contacts"] = value
 
     # If labeled parsing found nothing, try comma-separated inline format
     if not result:
@@ -114,7 +73,7 @@ def merge_client_answer(pending: dict, message_text: str) -> dict:
             "question": (
                 "Принял. Ещё не хватает:\n"
                 + "\n".join(f"- {_FIELD_LABELS[k]}" for k in missing if k in _FIELD_LABELS)
-                + "\n\nМожно дописать эти поля или ответить: без данных"
+                + "\n\nМожно дописать или ответить: без данных"
             ),
             "pending": {**pending, "client": client},
         }
