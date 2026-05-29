@@ -322,14 +322,14 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
             ws.add_image(img)
 
         # Logos: left/right at 70% of original, main at 120% of original
-        # Left-top: 44×57 (was 63×82)
-        _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=5, row_off_px=5, w_px=44, h_px=57)
-        # Left-bottom: 78×59 (was 112×84)
-        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=0, row_off_px=0, w_px=78, h_px=59)
-        # Main logo: 479×78 (was 399×65) — centered: col B + 13px
-        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=13, row_off_px=15, w_px=479, h_px=78)
-        # Right logo: 83×92 (was 118×132) — right edge of col F (37px offset)
-        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=5, col_off_px=37, row_off_px=5, w_px=83, h_px=92)
+        # Left-top: 44×57 — 20px from left edge
+        _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=20, row_off_px=5, w_px=44, h_px=57)
+        # Left-bottom: 78×59 — 15px from left edge
+        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=15, row_off_px=0, w_px=78, h_px=59)
+        # Main logo: 479×78 — col B + 90px (shifted right toward center)
+        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=90, row_off_px=15, w_px=479, h_px=78)
+        # Right logo: 83×92 — 10px from left of col F (padded from right edge)
+        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=5, col_off_px=10, row_off_px=5, w_px=83, h_px=92)
 
         # Find anchor rows for signature and stamp
         dir_row = None
@@ -358,10 +358,11 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
             stamp_img = XLImage(str(_STAMP_PATH))
             _add_centered(stamp_img, mp_row + 1, 163, 163)
 
-        # ── Pass 6: collapse header rows 1-8 into one merged block ───────────
-        _HMERGE_END = 8
+        # ── Pass 6: merge rows 1-4 into single block; text sits just below logos ─
+        _HMERGE_END = 4   # A1:F4 — short enough for text to land below logos
+        _HTEXT_END = 8    # company text lives in rows 3-8
         _hdr_lines = []
-        for _rn in range(3, _HMERGE_END + 1):
+        for _rn in range(3, _HTEXT_END + 1):
             _hc = ws.cell(row=_rn, column=1)
             if isinstance(_hc.value, str) and _hc.value.strip():
                 _hdr_lines.append(_hc.value.strip())
@@ -372,14 +373,17 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
         )
         if not _already_hmerged and _hdr_lines:
             for _mr in list(ws.merged_cells.ranges):
-                if _mr.min_row >= 1 and _mr.max_row <= _HMERGE_END:
+                if _mr.min_row >= 1 and _mr.max_row <= _HTEXT_END:
                     ws.unmerge_cells(str(_mr))
             ws.merge_cells(f"A1:F{_HMERGE_END}")
             ws.cell(row=1, column=1).value = "\n".join(_hdr_lines)
             ws.cell(row=1, column=1).alignment = Alignment(
                 horizontal="center", vertical="bottom", wrap_text=True
             )
-            ws.cell(row=1, column=1).font = Font(name="Times New Roman", size=12)
+            ws.cell(row=1, column=1).font = Font(name="Times New Roman", size=9, bold=True, italic=True)
+            # Collapse rows 5-8 so they leave no blank gap
+            for _rn in range(_HMERGE_END + 1, _HTEXT_END + 1):
+                ws.row_dimensions[_rn].hidden = True
 
     out = BytesIO()
     wb.save(out)
