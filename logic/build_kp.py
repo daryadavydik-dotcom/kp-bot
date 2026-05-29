@@ -4,7 +4,7 @@ from pathlib import Path
 
 import openpyxl
 from openpyxl.drawing.image import Image as XLImage
-from openpyxl.styles import Alignment, Font
+from openpyxl.styles import Alignment, Border, Font, Side
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 _SIGNATURE_PATH = _PROJECT_ROOT / "Подпись.png"
@@ -241,13 +241,34 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                     ws.row_dimensions[_cell.row].height = 15
                     break
 
+        # Fix intro row ("В ответ на") height so text fits
+        for _row in ws.iter_rows(min_row=1, max_row=header_end):
+            for _cell in _row:
+                if isinstance(_cell.value, str) and "В ответ на" in _cell.value:
+                    _tlen = len(_cell.value)
+                    _lines = max(2, -(-_tlen // 80))
+                    ws.row_dimensions[_cell.row].height = _lines * 18
+                    break
+
+        # Fix Итого row — thin border on total sum cell (column F)
+        _thin = Side(style="thin")
+        _sum_border = Border(top=_thin, bottom=_thin, left=_thin, right=_thin)
+        for _row in ws.iter_rows():
+            for _cell in _row:
+                if isinstance(_cell.value, str) and "Итого" in _cell.value:
+                    ws.cell(row=_cell.row, column=6).border = _sum_border
+                    break
+            else:
+                continue
+            break
+
         # ── Pass 3.5: partial bold — keyword bold, value after colon normal ─────
         from openpyxl.cell.rich_text import CellRichText, TextBlock
         from openpyxl.cell.text import InlineFont as _IFont
 
         _SEMI_BOLD = ("• Условия оплаты:", "• Срок изготовления:", "• Способ доставки:")
-        _IBOLD = _IFont(b=True)
-        _INORM = _IFont(b=False)
+        _IBOLD = _IFont(b=True, rFont="Times New Roman")
+        _INORM = _IFont(b=False, rFont="Times New Roman")
 
         for _row in ws.iter_rows():
             for _cell in _row:
@@ -299,8 +320,8 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
         _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=5, row_off_px=5, w_px=63, h_px=82)
         # Left-bottom: СРО НП text (112×84) — row 1, col A (0)
         _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=0, row_off_px=0, w_px=112, h_px=84)
-        # Main logo (399×65) — centered across all 6 columns
-        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=0, col_off_px=70, row_off_px=15, w_px=399, h_px=65)
+        # Main logo (399×65) — centered across all 6 columns (col B + 36px offset)
+        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=36, row_off_px=15, w_px=399, h_px=65)
         # Right logo: SEG (118×132) — right edge of column F (col 5)
         _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=5, col_off_px=0, row_off_px=5, w_px=118, h_px=132)
 
