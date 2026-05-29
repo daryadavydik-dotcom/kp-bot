@@ -214,6 +214,33 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                     raw = url_m.group(0)
                     cell.hyperlink = raw if raw.startswith("http") else f"http://{raw}"
 
+        # Fix ОКПО row — merge A:F if not already full-width
+        for _row in ws.iter_rows(min_row=1, max_row=HEADER_END_ROW):
+            for _cell in _row:
+                if isinstance(_cell.value, str) and "ОКПО" in _cell.value:
+                    _rn = _cell.row
+                    _is_full = any(
+                        mr.min_row <= _rn <= mr.max_row and mr.min_col == 1 and mr.max_col >= 6
+                        for mr in ws.merged_cells.ranges
+                    )
+                    if not _is_full:
+                        try:
+                            ws.merge_cells(f"A{_rn}:F{_rn}")
+                        except Exception:
+                            pass
+                    ws.cell(row=_rn, column=1).alignment = Alignment(
+                        horizontal="center", vertical="center", wrap_text=True
+                    )
+                    break
+
+        # Fix Исх. row — single line, no wrap
+        for _row in ws.iter_rows(min_row=1, max_row=HEADER_END_ROW):
+            for _cell in _row:
+                if isinstance(_cell.value, str) and _cell.value.startswith("Исх"):
+                    _cell.alignment = Alignment(wrap_text=False, horizontal="left", vertical="center")
+                    ws.row_dimensions[_cell.row].height = 15
+                    break
+
         # ── Pass 3.5: partial bold — keyword bold, value after colon normal ─────
         from openpyxl.cell.rich_text import CellRichText, TextBlock
         from openpyxl.cell.text import InlineFont as _IFont
@@ -272,10 +299,10 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
         _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=5, row_off_px=5, w_px=63, h_px=82)
         # Left-bottom: СРО НП text (112×84) — row 1, col A (0)
         _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=0, row_off_px=0, w_px=112, h_px=84)
-        # Main logo (399×65) — row 0, col B (1), centered
-        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=18, row_off_px=15, w_px=399, h_px=65)
-        # Right logo: SEG (118×132) — row 0, col E (4)
-        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=4, col_off_px=5, row_off_px=5, w_px=118, h_px=132)
+        # Main logo (399×65) — centered across all 6 columns
+        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=0, col_off_px=70, row_off_px=15, w_px=399, h_px=65)
+        # Right logo: SEG (118×132) — right edge of column F (col 5)
+        _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=5, col_off_px=0, row_off_px=5, w_px=118, h_px=132)
 
         # Find anchor rows for signature and stamp
         dir_row = None
