@@ -283,6 +283,11 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                 for _pfx in _SEMI_BOLD:
                     if _cell.value.startswith(_pfx):
                         _rest = _cell.value[len(_pfx):]
+                        if _pfx == "• Способ доставки:":
+                            _target = "Республика Башкортостан"
+                            if _target in _rest:
+                                _i = _rest.index(_target)
+                                _rest = _rest[:_i].rstrip() + "\n" + _rest[_i:]
                         _cell.value = CellRichText(
                             TextBlock(_IBOLD, _pfx),
                             TextBlock(_INORM, _rest),
@@ -290,7 +295,6 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                         _cell.font = Font(name="Times New Roman", size=13)
                         if _pfx == "• Способ доставки:":
                             _cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="center")
-                            ws.row_dimensions[_cell.row].height = 36
                         break
 
         # ── Pass 4: delete empty product rows (bottom → top) ─────────────────
@@ -387,18 +391,33 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
             for _rn in range(_HMERGE_END + 1, _HTEXT_END + 1):
                 ws.row_dimensions[_rn].hidden = True
 
-        # ── Pass 7: bold static rows; fix typo ───────────────────────────────
+        # ── Pass 7: bold static rows; fix typo; delete М.П. ─────────────────
         _BOLD_STARTS = (
             "Коммерческое предложение действительно",
             "С уважением",
             "Генеральный директор",
+            "Осколков А.С.",
         )
+
+        # Fix Способ доставки row height AFTER Pass 4 row deletions
+        for _r in ws.iter_rows():
+            for _c in _r:
+                if _c.value is not None and "Способ доставки" in str(_c.value):
+                    ws.row_dimensions[_c.row].height = 40
+                    break
+            else:
+                continue
+            break
+
         for _row in ws.iter_rows():
             for _cell in _row:
                 if not isinstance(_cell.value, str):
                     continue
                 if "Жиглова" in _cell.value:
                     _cell.value = _cell.value.replace("Жиглова", "Жигалова")
+                if _cell.value.strip() in ("М.П.", "М.П"):
+                    _cell.value = None
+                    continue
                 for _s in _BOLD_STARTS:
                     if _cell.value.startswith(_s):
                         _ef = _cell.font
