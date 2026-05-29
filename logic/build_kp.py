@@ -322,12 +322,12 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
             ws.add_image(img)
 
         # Logos: left/right at 70% of original, main at 120% of original
-        # Left-top: 44×57 — 20px from left edge
+        # Left-top: 44×57 — same horizontal start as left-bot
         _place(_get_img("left_top", _LOGO_LEFT_TOP_PATH), row_0=0, col_0=0, col_off_px=20, row_off_px=5, w_px=44, h_px=57)
-        # Left-bottom: 78×59 — 15px from left edge
-        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=15, row_off_px=0, w_px=78, h_px=59)
-        # Main logo: 479×78 — col B + 90px (shifted right toward center)
-        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=90, row_off_px=15, w_px=479, h_px=78)
+        # Left-bottom: 78×59 — aligned with left-top (same col_off_px=20)
+        _place(_get_img("left_bot", _LOGO_LEFT_BOT_PATH), row_0=1, col_0=0, col_off_px=20, row_off_px=0, w_px=78, h_px=59)
+        # Main logo: 479×78 — col B + 64px (centers logo over cell text)
+        _place(_get_img("main", _LOGO_MAIN_PATH), row_0=0, col_0=1, col_off_px=64, row_off_px=15, w_px=479, h_px=78)
         # Right logo: 83×92 — 10px from left of col F (padded from right edge)
         _place(_get_img("right", _LOGO_RIGHT_PATH), row_0=0, col_0=5, col_off_px=10, row_off_px=5, w_px=83, h_px=92)
 
