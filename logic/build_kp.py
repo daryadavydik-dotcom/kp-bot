@@ -275,6 +275,7 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
         _SEMI_BOLD = ("• Условия оплаты:", "• Срок изготовления:", "• Способ доставки:")
         _IBOLD = _IFont(b=True, rFont="Times New Roman", sz=13)
         _INORM = _IFont(b=False, rFont="Times New Roman", sz=13)
+        _delivery_orig_row = None
 
         for _row in ws.iter_rows():
             for _cell in _row:
@@ -283,18 +284,14 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                 for _pfx in _SEMI_BOLD:
                     if _cell.value.startswith(_pfx):
                         _rest = _cell.value[len(_pfx):]
-                        if _pfx == "• Способ доставки:":
-                            _target = "Республика Башкортостан"
-                            if _target in _rest:
-                                _i = _rest.index(_target)
-                                _rest = _rest[:_i].rstrip() + "\n" + _rest[_i:]
                         _cell.value = CellRichText(
                             TextBlock(_IBOLD, _pfx),
                             TextBlock(_INORM, _rest),
                         )
                         _cell.font = Font(name="Times New Roman", size=13)
                         if _pfx == "• Способ доставки:":
-                            _cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="center")
+                            _delivery_orig_row = _cell.row
+                            _cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="top")
                         break
 
         # ── Pass 4: delete empty product rows (bottom → top) ─────────────────
@@ -304,6 +301,11 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
         )
         for row_num in rows_to_delete:
             ws.delete_rows(row_num)
+
+        # Fix Способ доставки row height precisely after row deletions
+        if _delivery_orig_row is not None:
+            _del_before = sum(1 for r in rows_to_delete if r < _delivery_orig_row)
+            ws.row_dimensions[_delivery_orig_row - _del_before].height = 60
 
         # ── Pass 5: insert logos and images ──────────────────────────────────
         from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
@@ -398,16 +400,6 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
             "Генеральный директор",
             "Осколков А.С.",
         )
-
-        # Fix Способ доставки row height AFTER Pass 4 row deletions
-        for _r in ws.iter_rows():
-            for _c in _r:
-                if _c.value is not None and "Способ доставки" in str(_c.value):
-                    ws.row_dimensions[_c.row].height = 40
-                    break
-            else:
-                continue
-            break
 
         for _row in ws.iter_rows():
             for _cell in _row:
