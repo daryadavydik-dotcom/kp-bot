@@ -165,8 +165,8 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
                 name_cell = ws.cell(row=row_num, column=product_name_col)
                 name_cell.alignment = Alignment(wrap_text=True, vertical="top")
                 text_len = len(str(name_cell.value or ""))
-                lines = max(1, -(-text_len // 45))
-                ws.row_dimensions[row_num].height = max(30, lines * 18)
+                lines = max(1, -(-text_len // 38))
+                ws.row_dimensions[row_num].height = max(30, lines * 20 + 8)
 
         # Column widths
         ws.column_dimensions["A"].width = 22
@@ -273,8 +273,8 @@ def fill_template(template_bytes: bytes, replacements: dict, logos: dict | None 
         from openpyxl.cell.text import InlineFont as _IFont
 
         _SEMI_BOLD = ("• Условия оплаты:", "• Срок изготовления:", "• Способ доставки:")
-        _IBOLD = _IFont(b=True, rFont="Times New Roman")
-        _INORM = _IFont(b=False, rFont="Times New Roman")
+        _IBOLD = _IFont(b=True, rFont="Times New Roman", sz=13)
+        _INORM = _IFont(b=False, rFont="Times New Roman", sz=13)
 
         for _row in ws.iter_rows():
             for _cell in _row:
